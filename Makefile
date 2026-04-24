@@ -12,10 +12,11 @@ build:
 help:
 	go run . -h
 
-# Installs binary, systemd unit, and a placeholder env file. Re-runnable.
-# Run with sudo. Does not start the service; see systemd/README.md.
-install: build
-	install -m 755 $(BINARY) $(BIN)
+# Install a prebuilt binary + systemd unit + placeholder env file. Idempotent.
+# Expects `make build` to have been run first (so we don't need Go under sudo).
+install:
+	@test -x ./$(BINARY) || { echo "error: ./$(BINARY) not found. Run 'make build' first (without sudo)."; exit 1; }
+	install -m 755 ./$(BINARY) $(BIN)
 	id -u $(BINARY) >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin $(BINARY)
 	test -f $(ENVFILE) || install -m 600 -o root -g root .env.example $(ENVFILE)
 	install -m 644 systemd/$(BINARY).service $(UNIT)

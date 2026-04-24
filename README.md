@@ -49,7 +49,7 @@ Flags override env: **`-host`**, **`-port`**, **`-h`/`-help`** (exit 0). Run **`
 | `make build`        | compile `./youtube-randomizer` |
 | `make help`         | print CLI usage |
 | `make clean`        | remove the local binary |
-| `sudo make install` | build + install binary, user, env file, and systemd unit (see [`systemd/README.md`](systemd/README.md)) |
+| `sudo make install` | install prebuilt binary, user, env file, and systemd unit (run `make build` first — see [`systemd/README.md`](systemd/README.md)) |
 | `sudo make uninstall` | remove binary and unit (keeps env file and user) |
 
 ## Quota note

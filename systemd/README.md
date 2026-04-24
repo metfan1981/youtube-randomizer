@@ -2,18 +2,20 @@
 
 Clone the repo on the server, install, configure, start. Requires Go 1.22+ on the server.
 
-## 1. Clone and install
+## 1. Clone, build, install
 
 ```bash
 git clone <this-repo-url> youtube-randomizer
 cd youtube-randomizer
-sudo make install
+make build             # as your normal user; needs Go 1.22+ on PATH
+sudo make install      # as root; no Go required
 ```
+
+Two steps on purpose: `sudo` scrubs `PATH`, so `go` installed under your user usually isn't visible to root. Build as yourself, install as root.
 
 `sudo make install` (idempotent) does:
 
-- `go build` the binary
-- `install` it to `/usr/local/bin/youtube-randomizer`
+- `install` the prebuilt `./youtube-randomizer` to `/usr/local/bin/`
 - create system user `youtube-randomizer` (if missing)
 - copy `.env.example` to `/etc/youtube-randomizer.env` with mode 600 (if missing)
 - copy the systemd unit and run `daemon-reload`
@@ -50,6 +52,7 @@ Pull and reinstall:
 
 ```bash
 git pull
+make build
 sudo make install
 sudo systemctl restart youtube-randomizer
 ```
