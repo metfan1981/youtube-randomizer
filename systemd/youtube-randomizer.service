@@ -1,0 +1,29 @@
+[Unit]
+Description=YouTube channel randomizer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=youtube-randomizer
+WorkingDirectory=/
+ExecStart=/usr/local/bin/youtube-randomizer
+EnvironmentFile=/etc/youtube-randomizer.env
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target

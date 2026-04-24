@@ -1,0 +1,5 @@
+# bin
+youtube-randomizer
+
+# local secrets / preferences (see .env.example)
+.env
