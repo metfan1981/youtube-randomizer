@@ -1,106 +1,74 @@
-# Running youtube-randomizer with systemd
+# Run on a server (systemd)
 
-This is a minimal production-style setup on Linux: dedicated user, config file on disk, automatic restart on failure.
+Clone the repo on the server, install, configure, start. Requires Go 1.22+ on the server.
 
-## 1. Build the binary
-
-On your build machine (or the server, if it has Go):
+## 1. Clone and install
 
 ```bash
-make build
+git clone <this-repo-url> youtube-randomizer
+cd youtube-randomizer
+sudo make install
 ```
 
-Copy the binary to the server, e.g.:
+`sudo make install` (idempotent) does:
+
+- `go build` the binary
+- `install` it to `/usr/local/bin/youtube-randomizer`
+- create system user `youtube-randomizer` (if missing)
+- copy `.env.example` to `/etc/youtube-randomizer.env` with mode 600 (if missing)
+- copy the systemd unit and run `daemon-reload`
+
+## 2. Set the API key
 
 ```bash
-sudo cp youtube-randomizer /usr/local/bin/
-sudo chmod 755 /usr/local/bin/youtube-randomizer
+sudoedit /etc/youtube-randomizer.env
 ```
 
-## 2. Service user
+At minimum set **`YT_API_KEY`**. Optional: `HOST`, `PORT`, `CACHE_TTL`, `FETCH_TIMEOUT` — same names as [`.env.example`](../.env.example). To bind all interfaces use **`HOST=0.0.0.0`**; otherwise keep `127.0.0.1` and put a reverse proxy in front.
 
-Use a non-login system account so the process does not run as root:
+## 3. Start
 
 ```bash
-sudo useradd --system --no-create-home --shell /usr/sbin/nologin youtube-randomizer
+sudo systemctl enable --now youtube-randomizer
+curl -sS http://127.0.0.1:8080/healthz         # -> "ok"
 ```
 
-## 3. Environment file
-
-systemd loads variables from a single file (same `KEY=value` style as `.env` in this repo, but without `export`):
+## Manage
 
 ```bash
-sudo install -m 600 /dev/null /etc/youtube-randomizer.env
-sudo chown root:root /etc/youtube-randomizer.env
-sudo nano /etc/youtube-randomizer.env
+sudo systemctl status   youtube-randomizer
+sudo systemctl restart  youtube-randomizer     # after editing the env file
+sudo systemctl stop     youtube-randomizer
+sudo systemctl disable  youtube-randomizer     # don't start at boot
+sudo journalctl -u youtube-randomizer -f       # follow logs
+sudo journalctl -u youtube-randomizer -n 200   # recent logs
 ```
 
-Minimum content:
+## Update
 
-```ini
-YT_API_KEY=your-real-key-here
-```
-
-Optional (same names as in [`.env.example`](../.env.example)):
-
-```ini
-HOST=127.0.0.1
-PORT=8080
-CACHE_TTL=1h
-FETCH_TIMEOUT=3m
-```
-
-**Security:** mode `600`, owned by root. The service user does not need read access to this file; systemd injects the variables into the process.
-
-To listen on all interfaces (e.g. behind a reverse proxy on the same host, you may still prefer loopback):
-
-```ini
-HOST=0.0.0.0
-PORT=8080
-```
-
-The unit sets **`WorkingDirectory=/`**, so the process never loads a repo **`.env`** (that only applies when you run the binary from a directory that contains **`.env`**). Under systemd, config comes from **`EnvironmentFile=`** only. The binary still reads **`HOST`**, **`PORT`**, etc. from the injected environment—the same variable names as [`.env.example`](../.env.example).
-
-## 4. Install the unit
+Pull and reinstall:
 
 ```bash
-sudo cp systemd/youtube-randomizer.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable youtube-randomizer
-sudo systemctl start youtube-randomizer
-```
-
-Check status:
-
-```bash
-sudo systemctl status youtube-randomizer
-curl -sS http://127.0.0.1:8080/healthz
-```
-
-Logs:
-
-```bash
-sudo journalctl -u youtube-randomizer -f
-```
-
-## 5. Hardening and networking
-
-The unit file adds common **systemd** sandboxing (no ambient caps, IPv4/IPv6-only sockets, `MemoryDenyWriteExecute`, etc.). If the binary fails to start on an unusual host, try commenting out **`MemoryDenyWriteExecute=`** first, then ask in your distro’s forums.
-
-- **Firewall:** allow only what you need (e.g. proxy → `PORT`, or nothing public if you only use SSH + local curl).
-- **TLS:** terminate HTTPS in **nginx**, **Caddy**, or similar, and proxy to `127.0.0.1:PORT` with **`HOST=127.0.0.1`**.
-- **Unit tweaks:** adjust `ProtectSystem=`, `ReadWritePaths=`, or add capabilities only if you know you need them. Prefer a reverse proxy instead of binding directly to a privileged port.
-
-## 6. Updating the binary
-
-```bash
-sudo systemctl stop youtube-randomizer
-sudo cp /path/to/new/youtube-randomizer /usr/local/bin/
-sudo systemctl start youtube-randomizer
-```
-
-After changing `/etc/youtube-randomizer.env`:
-
-```bash
+git pull
+sudo make install
 sudo systemctl restart youtube-randomizer
 ```
+
+Edit config only:
+
+```bash
+sudoedit /etc/youtube-randomizer.env
+sudo systemctl restart youtube-randomizer
+```
+
+## Uninstall
+
+```bash
+sudo make uninstall    # removes binary + unit, keeps env file and user
+```
+
+## Notes
+
+- The unit sets `WorkingDirectory=/`, so a repo-local `.env` is never read under systemd.
+- Hardening directives are in the unit. If the service fails to start on a quirky kernel/arch, comment out `MemoryDenyWriteExecute=` in `/etc/systemd/system/youtube-randomizer.service` and `daemon-reload + restart`.
+- **TLS and public exposure:** keep `HOST=127.0.0.1` and terminate TLS in nginx/Caddy proxying to that port.
